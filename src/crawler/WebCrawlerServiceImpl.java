@@ -1,6 +1,7 @@
 package crawler;
 
 import java.io.IOException;
+import java.net.URL;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -55,7 +56,9 @@ public class WebCrawlerServiceImpl implements WebCrawlerService {
 				_crawlerStoreService.storeUrlAsVisited(crawlingStrategy.getTableNameForVisitedUrls(), url);
  
 				//get useful information
-				Document doc = Jsoup.connect(url).get();
+				//Document doc = Jsoup.connect(url).get();
+				
+				Document doc = Jsoup.parse(new URL(url).openStream(), "gbk", url);
 				
 				if (crawlingStrategy.checkShouldStoreHTML(url)) {
 					//store the URL and HTML to database
