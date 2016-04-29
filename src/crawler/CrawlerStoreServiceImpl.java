@@ -1,9 +1,12 @@
 package crawler;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Optional;
 
 public class CrawlerStoreServiceImpl implements CrawlerStoreService {
   private CrawlerDatabaseExecutor _crawlerDatabaseExecutor;
@@ -32,6 +35,23 @@ public class CrawlerStoreServiceImpl implements CrawlerStoreService {
 		  return true;
 	  } else {
 		  return false;
+	  }
+  }
+  
+  public Optional<String> getUrlWithRecordID(String tableName, int index) throws SQLException, IOException {
+	  String sql = String.format("select * from %s where RecordID = '%s'", tableName, index);
+	  ResultSet rs = _crawlerDatabaseExecutor.runSql(sql);
+	  if(rs.next()) {
+		  StringBuilder sb = new StringBuilder();
+		  Reader in = rs.getCharacterStream("URL");
+		  int buf = -1;
+		  while((buf = in.read()) > -1) {
+		        sb.append((char)buf);
+		  }
+		  in.close();
+		  return Optional.of(sb.toString());
+	  } else {
+		  return Optional.empty();
 	  }
   }
   

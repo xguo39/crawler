@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Optional;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -36,44 +37,67 @@ public class WebCrawlerServiceImpl implements WebCrawlerService {
 			// existing data in the future.
 			_crawlerStoreService.truncateTableForVisitedUrls(crawlingStrategy.getTableNameForVisitedUrls());
 			_crawlerStoreService.truncateTableForWebPages(crawlingStrategy.getTableNameForWebPages());
+			
+			// Start the crawling loop
+			crawlingLoop(crawlingStrategy);
 		} catch (SQLException e) {
 			System.out.println(String.format("Throw exception for crawlingTask: %s, %s", crawlingTask.toString(), e));
 		}
+	}
+	
+	private void crawlingLoop(CrawlingStrategy crawlingStrategy) {
+		if (crawlingStrategy.getSeedUrl() == null) {
+			System.out.println(String.format("Seed url is null for crawlingStrategy: %s", crawlingStrategy.toString()));
+			return;
+		}
 		
-		processPage(crawlingStrategy.getSeedUrl(), crawlingStrategy);
+		try {
+			//store the seed URL to database as initialization
+			_crawlerStoreService.storeUrlAsVisited(crawlingStrategy.getTableNameForVisitedUrls(), crawlingStrategy.getSeedUrl());
+			
+			int index = 1;
+			Optional<String> mayBeUrl = _crawlerStoreService.getUrlWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
+			while(mayBeUrl.isPresent()) {
+				processPage(mayBeUrl.get(), crawlingStrategy);
+				index++;
+				mayBeUrl = _crawlerStoreService.getUrlWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
+			}
+		} catch (SQLException | IOException e) {
+			System.out.println(String.format("Throw exception, %s", e));
+		}
+
 	}
 	
 	private void processPage(String url, CrawlingStrategy crawlingStrategy) {
+		//Print the URL for check
+		System.out.println(url);
+		
+		//get useful information
+		//Document doc = Jsoup.connect(url).get();
 		try {
-			//check if the given URL is already in database
-			if(_crawlerStoreService.checkIfUrlVisited(crawlingStrategy.getTableNameForVisitedUrls(), url)){
-				//We just skip this URL here
-			} else {
-				//Print the URL for check
-				System.out.println(url);
-				
-				//store the URL to database to avoid parsing again
-				_crawlerStoreService.storeUrlAsVisited(crawlingStrategy.getTableNameForVisitedUrls(), url);
- 
-				//get useful information
-				//Document doc = Jsoup.connect(url).get();
-				
-				Document doc = Jsoup.parse(new URL(url).openStream(), "gbk", url);
-				
-				if (crawlingStrategy.checkShouldStoreHTML(url)) {
-					//store the URL and HTML to database
-					_crawlerStoreService.storeWebPage(crawlingStrategy.getTableNameForWebPages(), url, doc.toString());
-				}
-				
-				//get all links and recursively call the processPage method
-				Elements urlCandidates = doc.select("a[href]");
-				for(Element link: urlCandidates){
-					if (crawlingStrategy.checkShouldCrawl(link))
-						processPage(link.attr("abs:href"), crawlingStrategy);
+			Document doc = Jsoup.parse(new URL(url).openStream(), "gbk", url);
+		
+			if (crawlingStrategy.checkShouldStoreHTML(url)) {
+				//store the URL and HTML to database
+				_crawlerStoreService.storeWebPage(crawlingStrategy.getTableNameForWebPages(), url, doc.toString());
+			}
+		
+			//get all links and recursively call the processPage method
+			Elements urlCandidates = doc.select("a[href]");
+			for(Element link: urlCandidates){
+				if (crawlingStrategy.checkShouldCrawl(link)) {
+					String potentialUrl = link.attr("abs:href");
+					String tableName = crawlingStrategy.getTableNameForVisitedUrls();
+			
+					//check if the potentialUrl is already in database
+					if(!_crawlerStoreService.checkIfUrlVisited(tableName, potentialUrl)) {			
+						//store the URL to database to be crawled in the future
+						_crawlerStoreService.storeUrlAsVisited(tableName, potentialUrl);
+					}
 				}
 			}
 		} catch (SQLException | IOException e) {
 			System.out.println(String.format("Throw exception for %s, %s", url, e));
-		}
+	    }
 	}
 }
