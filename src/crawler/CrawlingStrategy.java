@@ -9,5 +9,5 @@ public interface CrawlingStrategy {
   String getTableNameForWebPages();
   String getSeedUrl();
   boolean checkShouldCrawl(Element element);
-  boolean checkShouldStoreHTML(String url);
+  boolean checkShouldStoreHTML(Element element);
 }

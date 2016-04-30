@@ -25,8 +25,8 @@ public class QuantnetCrawlingStrategy implements CrawlingStrategy {
 		return _seedUrl;
 	}
 	
-	public boolean checkShouldStoreHTML(String url) {
-		return url.matches(String.format("%s[^#]*/detail$", _seedUrl));
+	public boolean checkShouldStoreHTML(Element link) {
+		return link.attr("abs:href").matches(String.format("%s[^#]*/detail$", _seedUrl));
 	}
 	
 	public boolean checkShouldCrawl(Element link) {

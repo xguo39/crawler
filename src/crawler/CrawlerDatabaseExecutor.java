@@ -13,7 +13,7 @@ public class CrawlerDatabaseExecutor {
 	public CrawlerDatabaseExecutor() {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
-			String url = String.format("jdbc:mysql://localhost:3306/%s", CrawlerDatabaseConfig.DATABASE_NAME);
+			String url = String.format("jdbc:mysql://localhost:3306/%s?useUnicode=true&characterEncoding=utf-8", CrawlerDatabaseConfig.DATABASE_NAME);
 			conn = DriverManager.getConnection(url, CrawlerDatabaseConfig.DATABASE_USER, CrawlerDatabaseConfig.DATABASE_PASSWORD);
 			System.out.println("conn built");
 		} catch (SQLException e) {

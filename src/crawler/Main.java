@@ -25,11 +25,15 @@ public class Main {
 		strategyMap.put(CrawlingTask.QUANTNET, new QuantnetCrawlingStrategy(
 				"Quantnet_MFE_Visited_Urls", 
 				"Quantnet_MFE_Web_Pages", 
-				"https://www.quantnet.com/tracker"));		
+				"https://www.quantnet.com/tracker"));
+		strategyMap.put(CrawlingTask.GTER, new GterCrawlingStrategy(
+				"Gter_new_Visited_Urls", 
+				"Gter_new_Web_Pages", 
+				"http://bbs.gter.net/forum.php?mod=forumdisplay&fid=49&typeid=158&filter=typeid&typeid=158&page=1"));	
 		return strategyMap;
 	}
  
 	public static void main(String[] args) {
-		webCrawlerService.crawl(CrawlingTask.QUANTNET);
+		webCrawlerService.crawl(CrawlingTask.GTER);
 	}
 }

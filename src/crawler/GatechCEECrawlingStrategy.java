@@ -25,8 +25,8 @@ public class GatechCEECrawlingStrategy implements CrawlingStrategy {
 		return _seedUrl;
 	}
 	
-	public boolean checkShouldStoreHTML(String url) {
-		return url.matches(String.format("%s[^#]*cv$", _seedUrl));
+	public boolean checkShouldStoreHTML(Element link) {
+		return link.attr("abs:href").matches(String.format("%s[^#]*cv$", _seedUrl));
 	}
 	
 	public boolean checkShouldCrawl(Element link) {

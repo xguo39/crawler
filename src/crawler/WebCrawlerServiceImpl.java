@@ -1,15 +1,23 @@
 package crawler;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+
+import com.sun.jna.StringArray;
 
 public class WebCrawlerServiceImpl implements WebCrawlerService {
 	private CrawlerStoreService _crawlerStoreService;
@@ -53,14 +61,24 @@ public class WebCrawlerServiceImpl implements WebCrawlerService {
 		
 		try {
 			//store the seed URL to database as initialization
-			_crawlerStoreService.storeUrlAsVisited(crawlingStrategy.getTableNameForVisitedUrls(), crawlingStrategy.getSeedUrl());
+			_crawlerStoreService.storeUrlAsVisited(crawlingStrategy.getTableNameForVisitedUrls(), 
+					crawlingStrategy.getSeedUrl(), Boolean.toString(false));
 			
 			int index = 1;
-			Optional<String> mayBeUrl = _crawlerStoreService.getUrlWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
-			while(mayBeUrl.isPresent()) {
-				processPage(mayBeUrl.get(), crawlingStrategy);
+			Optional<String[]> mayBeUrlAndStoreOption = _crawlerStoreService
+					.getUrlAndStoreOptionWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
+			
+			while(mayBeUrlAndStoreOption.isPresent()) {
+				System.out.println("Crawling the url at: " + index);
+				processPage(mayBeUrlAndStoreOption.get()[0], Boolean.valueOf(mayBeUrlAndStoreOption.get()[1]), crawlingStrategy);
+				if (Boolean.valueOf(mayBeUrlAndStoreOption.get()[1])) {
+					String temp = _crawlerStoreService.getHTML(crawlingStrategy.getTableNameForWebPages(), 
+							mayBeUrlAndStoreOption.get()[0]).get();
+					int a = 1;
+				}
 				index++;
-				mayBeUrl = _crawlerStoreService.getUrlWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
+				mayBeUrlAndStoreOption = _crawlerStoreService
+						.getUrlAndStoreOptionWithRecordID(crawlingStrategy.getTableNameForVisitedUrls(), index);
 			}
 		} catch (SQLException | IOException e) {
 			System.out.println(String.format("Throw exception, %s", e));
@@ -68,18 +86,30 @@ public class WebCrawlerServiceImpl implements WebCrawlerService {
 
 	}
 	
-	private void processPage(String url, CrawlingStrategy crawlingStrategy) {
-		//Print the URL for check
-		System.out.println(url);
-		
+	private void processPage(String urlString, Boolean shoudlStore, CrawlingStrategy crawlingStrategy) {
 		//get useful information
-		//Document doc = Jsoup.connect(url).get();
-		try {
-			Document doc = Jsoup.parse(new URL(url).openStream(), "gbk", url);
-		
-			if (crawlingStrategy.checkShouldStoreHTML(url)) {
+		try {			
+			System.out.println(urlString + " " + shoudlStore);
+			
+			HttpClient client = HttpClientBuilder.create().build();
+			HttpGet request = new HttpGet(urlString);
+			request.setHeader("User-Agent", "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13");
+			HttpResponse response = client.execute(request);
+			BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent(), "gbk"));
+            			
+			StringBuffer result = new StringBuffer();
+			String line1 = "";
+			while ((line1 = rd.readLine()) != null) {
+				result.append(line1);
+			}
+			String html = result.toString();
+			// System.out.println(html);
+			Document doc = Jsoup.parse(html);
+
+			if (shoudlStore) {
 				//store the URL and HTML to database
-				_crawlerStoreService.storeWebPage(crawlingStrategy.getTableNameForWebPages(), url, doc.toString());
+				String aString = new String(html.getBytes(), "UTF-8");
+				_crawlerStoreService.storeWebPage(crawlingStrategy.getTableNameForWebPages(), urlString, new String(html.getBytes(), "UTF-8"));
 			}
 		
 			//get all links and recursively call the processPage method
@@ -87,17 +117,24 @@ public class WebCrawlerServiceImpl implements WebCrawlerService {
 			for(Element link: urlCandidates){
 				if (crawlingStrategy.checkShouldCrawl(link)) {
 					String potentialUrl = link.attr("abs:href");
+					potentialUrl = potentialUrl.replace("&amp;", "&");
+					potentialUrl = java.net.URLDecoder.decode(potentialUrl, "UTF-8");
+					
 					String tableName = crawlingStrategy.getTableNameForVisitedUrls();
 			
 					//check if the potentialUrl is already in database
-					if(!_crawlerStoreService.checkIfUrlVisited(tableName, potentialUrl)) {			
+					if(!_crawlerStoreService.checkIfUrlVisited(tableName, potentialUrl)) {
 						//store the URL to database to be crawled in the future
-						_crawlerStoreService.storeUrlAsVisited(tableName, potentialUrl);
+						if (crawlingStrategy.checkShouldStoreHTML(link)) {
+							_crawlerStoreService.storeUrlAsVisited(tableName, potentialUrl, Boolean.toString(true));
+						} else {
+							_crawlerStoreService.storeUrlAsVisited(tableName, potentialUrl, Boolean.toString(false));
+						}
 					}
 				}
 			}
 		} catch (SQLException | IOException e) {
-			System.out.println(String.format("Throw exception for %s, %s", url, e));
+			System.out.println(String.format("Throw exception for %s, %s", urlString, e));
 	    }
 	}
 }

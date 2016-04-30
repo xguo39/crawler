@@ -19,6 +19,7 @@ public class CrawlerStoreServiceImpl implements CrawlerStoreService {
 	  String sql = String.format("CREATE TABLE IF NOT EXISTS `%s` ("
 	  		+ "`RecordID` INT(11) NOT NULL AUTO_INCREMENT,"
 	  		+ "`URL` text NOT NULL,"
+	  		+ "`STORE` text NOT NULL,"
 	  		+ "PRIMARY KEY (`RecordID`)"
 	  		+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;", tableName);
 	  _crawlerDatabaseExecutor.runSql2(sql);
@@ -38,30 +39,27 @@ public class CrawlerStoreServiceImpl implements CrawlerStoreService {
 	  }
   }
   
-  public Optional<String> getUrlWithRecordID(String tableName, int index) throws SQLException, IOException {
+  public Optional<String[]> getUrlAndStoreOptionWithRecordID(String tableName, int index) throws SQLException, IOException {
 	  String sql = String.format("select * from %s where RecordID = '%s'", tableName, index);
 	  ResultSet rs = _crawlerDatabaseExecutor.runSql(sql);
 	  if(rs.next()) {
-		  StringBuilder sb = new StringBuilder();
-		  Reader in = rs.getCharacterStream("URL");
-		  int buf = -1;
-		  while((buf = in.read()) > -1) {
-		        sb.append((char)buf);
-		  }
-		  in.close();
-		  return Optional.of(sb.toString());
+		  String url = rs.getString("URL");
+		  String store = rs.getString("STORE");
+		  String[] result = {url, store};		  
+		  return Optional.of(result);
 	  } else {
 		  return Optional.empty();
 	  }
   }
-  
-  public void storeUrlAsVisited(String tableName, String url) throws SQLException {
+   
+  public void storeUrlAsVisited(String tableName, String url, String storeOption) throws SQLException {
 	  //store the URL to database to avoid parsing again
-	  String sql = String.format("INSERT INTO  `%s`.`%s` (`URL`) VALUES (?);",
+	  String sql = String.format("INSERT INTO  `%s`.`%s` (`URL`, `STORE`) VALUES (?, ?);",
 			  CrawlerDatabaseConfig.DATABASE_NAME,
 			  tableName);
 	  PreparedStatement stmt = _crawlerDatabaseExecutor.conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 	  stmt.setString(1, url);
+	  stmt.setString(2, storeOption);
 	  stmt.execute();
   }
   
@@ -89,4 +87,22 @@ public class CrawlerStoreServiceImpl implements CrawlerStoreService {
 		stmtHTML.setString(2, webPageHtml);
 		stmtHTML.execute();
   }
+  
+	public Optional<String> getHTML(String tableName, String url) throws SQLException, IOException {
+		  String sql = String.format("select * from %s where URL = '%s'", tableName, url);
+		  ResultSet rs = _crawlerDatabaseExecutor.runSql(sql);
+
+		  if(rs.next()) {
+			  StringBuilder sb = new StringBuilder();
+			  Reader in = rs.getCharacterStream("HTML");
+			  int buf = -1;
+			  while((buf = in.read()) > -1) {
+			        sb.append((char)buf);
+			  }
+			  in.close();
+			  return Optional.of(sb.toString());
+		  } else {
+			  return Optional.empty();
+		  }
+	}
 }

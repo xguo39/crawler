@@ -2,5 +2,6 @@ package crawler;
 
 public enum CrawlingTask {
 	GATECH_CEE,
-	QUANTNET
+	QUANTNET,
+	GTER
 }
